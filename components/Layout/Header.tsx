@@ -1,7 +1,10 @@
 import Link from "next/link";
 import React from "react";
+import { useRecoilValue } from "recoil";
+import { addressState } from "../../atoms/addressAtom";
 
 function Header() {
+  const address = useRecoilValue(addressState);
   return (
     <header className="flex justify-between p-4 items-center shadow-md bg-blueGray-800">
       {/* left section */}
@@ -21,6 +24,11 @@ function Header() {
           ></img>
         </div>
       </Link>
+      <div className="bg-primary-500 rounded-full px-3 py-1">
+        <p className="font-medium text-white">
+          {address.slice(0, 6)}...{address.slice(-6)}
+        </p>
+      </div>
 
       {/* right section */}
       <div className="header-right flex md:justify-end md:flex-shrink items-center md:space-x-3 space-x-1"></div>
