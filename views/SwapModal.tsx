@@ -1,4 +1,9 @@
-import React, { useCallback, useEffect, useReducer } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useReducer,
+  useState,
+} from "react";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import {
@@ -10,7 +15,9 @@ import {
 import { ethers } from "ethers";
 import { useRecoilState, useSetRecoilState } from "recoil";
 import { addressState } from "../atoms/addressAtom";
-
+import abi from "../contracts/IPancakeRouter.json";
+import Web3 from "web3";
+const AnconToken = require("../contracts/Ancon.json");
 const INFURA_ID = "460f40a260564ac4a4f4b3fffb032dad";
 
 const providerOptions = {
@@ -34,7 +41,7 @@ if (typeof window !== "undefined") {
 // manage state
 type StateType = {
   provider?: any;
-  web3Provider?: any;
+  web3Provider?: ethers.providers.Web3Provider;
   address?: string;
   chainId?: number;
 };
@@ -94,6 +101,12 @@ function reducer(state: StateType, action: ActionType): StateType {
 }
 function SwapModal() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [balances, setBalances] = useState({
+    udsc: "",
+    ancon: "",
+  });
+  const [usdcQty, setUsdcQty] = useState("0");
+  const [anconQty, setAnconQty] = useState("0");
   const { provider, web3Provider, address, chainId } = state;
   const setAddress = useSetRecoilState(addressState);
 
@@ -108,6 +121,30 @@ function SwapModal() {
 
     const signer = web3Provider.getSigner();
     const address = await signer.getAddress();
+
+    // get balances
+    const usdc = new ethers.Contract(
+      "0x64544969ed7EBf5f083679233325356EbE738930",
+      AnconToken.abi,
+      web3Provider
+    );
+    const ancon = new ethers.Contract(
+      "0x2cFBD78C66f8c17B0104F31BDC6bA58941cab6A1",
+      AnconToken.abi,
+      web3Provider
+    );
+    let usdcBalance = await usdc.functions.balanceOf(address);
+    let anconBalance = await ancon.functions.balanceOf(address);
+    usdcBalance =
+      parseInt(Web3.utils.hexToNumberString(usdcBalance[0]._hex)) /
+      1000000000000000000;
+    anconBalance =
+      parseInt(Web3.utils.hexToNumberString(anconBalance[0]._hex)) /
+      1000000000000000000;
+    setBalances({
+      ancon: anconBalance.toString(),
+      udsc: usdcBalance.toString(),
+    });
     setAddress(address);
     const network = await web3Provider.getNetwork();
     dispatch({
@@ -123,7 +160,7 @@ function SwapModal() {
   const disconnect = useCallback(
     async function () {
       await web3Modal.clearCachedProvider();
-      setAddress('')
+      setAddress("");
       if (
         provider?.disconnect &&
         typeof provider.disconnect === "function"
@@ -188,6 +225,47 @@ function SwapModal() {
     }
   }, [provider, disconnect]);
 
+  const handleChange = (name: string, value: string) => {
+    switch (name) {
+      case "usdc":
+        console.log(parseInt(value));
+        if (parseFloat(value) < 0 || parseInt(value) === 0) {
+          setUsdcQty("0");
+        } else {
+          setUsdcQty(value);
+        }
+        break;
+
+      case "ancon":
+        if (parseFloat(value) < 0 || parseInt(value) === 0) {
+          setAnconQty("0");
+        } else {
+          setAnconQty(value);
+        }
+        break;
+    }
+  };
+
+  const swap = async () => {
+    const routerAddress = process.env.NEXT_PUBLIC_ROUTER_ADDRESS;
+    console.log(routerAddress);
+    const signer = await web3Provider.getSigner();
+    const router = new ethers.Contract(routerAddress, abi, signer);
+
+    const result = await router.swapExactTokensForTokens(
+      ethers.utils.hexlify(ethers.utils.arrayify("0.2")),
+      ethers.utils.hexlify("0.5"),
+      [
+        0x217f3bdbb0358082c99e1de01c47d1b2dba45ad5,
+        0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d,
+      ],
+      0x32a21c1bb6e7c20f547e930b53dac57f42cd25f6,
+      Date.now() + 1000000
+    );
+
+    console.log(result);
+  };
+
   return (
     <section className="flex items-center justify-center">
       <div className="bg-[#0c0f1c] rounded-xl p-2 mt-8 md:mt-32 xl:mt-60 w-10/12 shadow-lg sm:w-7/12 sm:mt-12 sm:px-3 md:w-5/12 xl:w-3/12">
@@ -203,16 +281,25 @@ function SwapModal() {
           {/* first token */}
           <div className="bg-[#2b334f] rounded-xl flex justify-between p-3 sm:py-5 items-center mt-2 relative">
             {/* dropdown */}
-            <div className="bg-[#0c0f1c] flex flex-shrink rounded-xl px-3 py-2 text-white">
-              {/* <ChevronDownIcon className="w-5" /> */}
-              <p className="font-medium sm:text-xl xl:text-xl">
-                USDC
+            <input
+              value={usdcQty}
+              name="usdc"
+              onChange={(e) =>
+                handleChange(e.target.name, e.target.value)
+              }
+              className="bg-transparent text-2xl w-1/2 focus:outline-none"
+            />
+            <div className="grid justify-items-end">
+              <p className="text-gray-300">
+                Avl: {balances.udsc.slice(0, 10)}
               </p>
-              <QuestionMarkCircleIcon className="w-5 text-gray-100 ml-1" />
+              <div className="bg-[#0c0f1c] flex justify-between rounded-xl px-3 py-2 text-white items-center">
+                <p className="font-medium sm:text-xl xl:text-xl select-none">
+                  USDC
+                </p>
+                <img src="/usdc.png" className="w-6 h-6 ml-3"></img>
+              </div>
             </div>
-            <p className="text-xl text-white font-sans sm:text-2xl">
-              0.0
-            </p>
           </div>
 
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -224,28 +311,43 @@ function SwapModal() {
           </div>
           {/* second token */}
           <div className="bg-[#2b334f] rounded-xl flex justify-between p-3 items-center mt-4 sm:py-5">
-            {/* dropdown */}
-            <div className="bg-[#0c0f1c] flex flex-shrink rounded-xl px-3 py-2 text-white">
-              {/* <ChevronDownIcon className="w-5" /> */}
-              <p className="font-medium sm:text-xl">ANCON</p>
-              <QuestionMarkCircleIcon className="w-5 text-gray-100 ml-1" />
+            <input
+              value={anconQty}
+              name="ancon"
+              onChange={(e) =>
+                handleChange(e.target.name, e.target.value)
+              }
+              className="bg-transparent text-2xl w-1/2 focus:outline-none"
+            />
+            <div className="grid justify-items-end">
+              <p className="text-gray-300">
+                Avl: {balances.ancon.slice(0, 10)}
+              </p>
+              {/* dropdown */}
+              <div className="bg-[#0c0f1c] flex rounded-xl px-3 py-2 text-white">
+                {/* <ChevronDownIcon className="w-5" /> */}
+                <p className="font-medium sm:text-xl">ANCON</p>
+                <img
+                  src="/ancon-logo.png"
+                  className="w-6 h-6 ml-3"
+                ></img>
+              </div>
             </div>
-            <p className="text-xl text-white font-sans sm:text-2xl">
-              0.0
-            </p>
           </div>
         </div>
 
         {/* button */}
 
         {web3Provider ? (
-          <div className="bg-primary-500 rounded-full flex justify-center items-center py-2 mt-5 mb-3 cursor-pointer">
+          <div
+            className="bg-primary-500 rounded-full flex justify-center items-center py-2 mt-5 mb-3 cursor-pointer"
+            onClick={swap}
+          >
             <button
               className="text-white font-bold text-lg "
               type="button"
-              onClick={disconnect}
             >
-              Disconnect
+              Swap
             </button>
           </div>
         ) : (
