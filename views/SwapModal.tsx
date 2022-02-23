@@ -6,18 +6,17 @@ import React, {
 } from "react";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
-import {
-  ArrowSmDownIcon,
-  ChevronDownIcon,
-  CogIcon,
-  QuestionMarkCircleIcon,
-} from "@heroicons/react/solid";
+import { ArrowSmDownIcon, CogIcon } from "@heroicons/react/solid";
 import { ethers } from "ethers";
-import { useRecoilState, useSetRecoilState } from "recoil";
+import { useSetRecoilState } from "recoil";
 import { addressState } from "../atoms/addressAtom";
 import abi from "../contracts/IPancakeRouter.json";
 import Web3 from "web3";
 const AnconToken = require("../contracts/Ancon.json");
+
+// SDK
+import { ChainId, Token, Fetcher, Pair, TokenAmount } from "@pancakeswap/sdk";
+
 const INFURA_ID = "460f40a260564ac4a4f4b3fffb032dad";
 
 const providerOptions = {
@@ -35,6 +34,13 @@ if (typeof window !== "undefined") {
   web3Modal = new Web3Modal({
     cacheProvider: true,
     providerOptions, // required
+    theme: {
+      background: "#0c0f1c",
+      main: "#2b334f",
+      secondary: "#D5C7D7",
+      border: "#0c0f1c",
+      hover: "#872684",
+    },
   });
 }
 
@@ -121,26 +127,37 @@ function SwapModal() {
 
     const signer = web3Provider.getSigner();
     const address = await signer.getAddress();
-
     // get balances
     const usdc = new ethers.Contract(
-      "0x64544969ed7EBf5f083679233325356EbE738930",
+      "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
       AnconToken.abi,
       web3Provider
     );
     const ancon = new ethers.Contract(
-      "0x2cFBD78C66f8c17B0104F31BDC6bA58941cab6A1",
+      "0x217f3bdbb0358082c99e1de01c47D1B2DBA45ad5",
       AnconToken.abi,
       web3Provider
     );
-    let usdcBalance = await usdc.functions.balanceOf(address);
-    let anconBalance = await ancon.functions.balanceOf(address);
-    usdcBalance =
-      parseInt(Web3.utils.hexToNumberString(usdcBalance[0]._hex)) /
-      1000000000000000000;
-    anconBalance =
-      parseInt(Web3.utils.hexToNumberString(anconBalance[0]._hex)) /
-      1000000000000000000;
+    let usdcBalance;
+    let anconBalance;
+    try {
+      usdcBalance = await usdc.functions.balanceOf(address);
+      usdcBalance =
+        parseInt(Web3.utils.hexToNumberString(usdcBalance[0]._hex)) /
+        1000000000000000000;
+    } catch (error) {
+      usdcBalance = "0";
+    }
+
+    try {
+      anconBalance = await ancon.functions.balanceOf(address);
+      anconBalance =
+        parseInt(Web3.utils.hexToNumberString(anconBalance[0]._hex)) /
+        1000000000000000000;
+    } catch (error) {
+      anconBalance = "0";
+    }
+
     setBalances({
       ancon: anconBalance.toString(),
       udsc: usdcBalance.toString(),
@@ -224,6 +241,7 @@ function SwapModal() {
       };
     }
   }, [provider, disconnect]);
+  console.log(chainId);
 
   const handleChange = (name: string, value: string) => {
     switch (name) {
@@ -246,24 +264,71 @@ function SwapModal() {
     }
   };
 
+  const getPair = async (usdc:Token, ancon:Token) => {
+    const pairAddress = Pair.getAddress(usdc, ancon);
+    
+    const reserves = await await Fetcher.fetchPairData(usdc, ancon, web3Provider);
+    
+    // const reserves = pairad;
+    const {reserve0, reserve1} = reserves;
+
+    const tokens = [usdc, ancon[usdc.chainId]];
+    const [token0, token1] = tokens[0].sortsBefore(tokens[1])
+      ? tokens
+      : [tokens[1], tokens[0]];
+
+    const pair = new Pair(
+      new TokenAmount(token0, reserve0),
+      new TokenAmount(token1, reserve1)
+    );
+    return pair;
+  };
   const swap = async () => {
     const routerAddress = process.env.NEXT_PUBLIC_ROUTER_ADDRESS;
-    console.log(routerAddress);
     const signer = await web3Provider.getSigner();
     const router = new ethers.Contract(routerAddress, abi, signer);
 
-    const result = await router.swapExactTokensForTokens(
-      ethers.utils.hexlify(ethers.utils.arrayify("0.2")),
-      ethers.utils.hexlify("0.5"),
-      [
-        0x217f3bdbb0358082c99e1de01c47d1b2dba45ad5,
-        0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d,
-      ],
-      0x32a21c1bb6e7c20f547e930b53dac57f42cd25f6,
-      Date.now() + 1000000
+    // prepare the tokens
+    const usdc: Token = new Token(
+      56,
+      "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      18,
+      "USDC",
+      "Binance-Peg USD Coin"
+    );
+    const ancon: Token = new Token(
+      56,
+      "0x217f3bdbb0358082c99e1de01c47D1B2DBA45ad5",
+      18,
+      "USDC",
+      "Binance-Peg USD Coin"
     );
 
-    console.log(result);
+    // create pair
+      const pair = await getPair(usdc,ancon)
+    // const usdc = new ethers.Contract(
+    //   "0x64544969ed7EBf5f083679233325356EbE738930",
+    //   AnconToken.abi,
+    //   web3Provider
+    // );
+    // const ancon = new ethers.Contract(
+    //   "0x2cFBD78C66f8c17B0104F31BDC6bA58941cab6A1",
+    //   AnconToken.abi,
+    //   web3Provider
+    // );
+    // await ancon.functions.apro;
+    //   const result = await router.swapExactTokensForTokens(
+    //     ethers.utils.hexlify(ethers.utils.arrayify("0.2")),
+    //     ethers.utils.hexlify("0.5"),
+    //     [
+    //       0x217f3bdbb0358082c99e1de01c47d1b2dba45ad5,
+    //       0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d,
+    //     ],
+    //     0x32a21c1bb6e7c20f547e930b53dac57f42cd25f6,
+    //     Date.now() + 1000000
+    //   );
+
+    //   console.log(result);
   };
 
   return (
@@ -274,7 +339,10 @@ function SwapModal() {
           {/* title */}
           <h1 className="text-white font-black text-2xl">Swap</h1>
           {/* settings */}
-          <CogIcon className="w-5 text-gray-100 sm:w-8" />
+          <CogIcon
+            className="w-5 text-gray-100 sm:w-8"
+            onClick={disconnect}
+          />
         </div>
 
         <div className="relative">
@@ -290,8 +358,8 @@ function SwapModal() {
               className="bg-transparent text-2xl w-1/2 focus:outline-none"
             />
             <div className="grid justify-items-end">
-              <p className="text-gray-300">
-                Avl: {balances.udsc.slice(0, 10)}
+              <p className="text-gray-300 text-sm">
+                Balance: {balances.udsc.slice(0, 10)}
               </p>
               <div className="bg-[#0c0f1c] flex justify-between rounded-xl px-3 py-2 text-white items-center">
                 <p className="font-medium sm:text-xl xl:text-xl select-none">
@@ -320,8 +388,8 @@ function SwapModal() {
               className="bg-transparent text-2xl w-1/2 focus:outline-none"
             />
             <div className="grid justify-items-end">
-              <p className="text-gray-300">
-                Avl: {balances.ancon.slice(0, 10)}
+              <p className="text-gray-300 text-sm">
+                Balance: {balances.ancon.slice(0, 10)}
               </p>
               {/* dropdown */}
               <div className="bg-[#0c0f1c] flex rounded-xl px-3 py-2 text-white">
@@ -351,11 +419,13 @@ function SwapModal() {
             </button>
           </div>
         ) : (
-          <div className="bg-primary-500 rounded-full flex justify-center items-center py-2 mt-5 mb-3 cursor-pointer">
+          <div
+            onClick={connect}
+            className="bg-primary-500 rounded-full flex justify-center items-center py-2 mt-5 mb-3 cursor-pointer"
+          >
             <button
               className="text-white font-bold text-lg"
               type="button"
-              onClick={connect}
             >
               Connect
             </button>
