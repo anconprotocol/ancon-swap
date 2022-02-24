@@ -61,13 +61,31 @@ const usdc: Token = new Token(
   "USDC",
   "Binance-Peg USD Coin"
 );
+
 const ancon: Token = new Token(
   56,
   "0x217f3bdbb0358082c99e1de01c47D1B2DBA45ad5",
   18,
-  "USDC",
-  "Binance-Peg USD Coin"
+  "ANCON",
+  "Ancon Protocol"
 );
+let token1: Token = usdc;
+let token2: Token = ancon;
+
+function reducerToken(state, action) {
+  switch (action.type) {
+    case "switch":
+      return {
+        token1: ancon,
+        token2: usdc,
+      };
+    case "switchback":
+      return {
+        token1: usdc,
+        token2: ancon,
+      };
+  }
+}
 
 // manage state
 type StateType = {
@@ -75,6 +93,8 @@ type StateType = {
   web3Provider?: ethers.providers.Web3Provider;
   address?: string;
   chainId?: number;
+  token1: Token;
+  token2: Token;
 };
 
 type ActionType =
@@ -95,6 +115,12 @@ type ActionType =
     }
   | {
       type: "RESET_WEB3_PROVIDER";
+    }
+  | {
+      type: "switch";
+    }
+  | {
+      type: "switchback";
     };
 
 const initialState: StateType = {
@@ -102,6 +128,8 @@ const initialState: StateType = {
   web3Provider: null,
   address: null,
   chainId: null,
+  token1: usdc,
+  token2: ancon,
 };
 
 function reducer(state: StateType, action: ActionType): StateType {
@@ -126,18 +154,37 @@ function reducer(state: StateType, action: ActionType): StateType {
       };
     case "RESET_WEB3_PROVIDER":
       return initialState;
+    case "switch":
+      token1 = ancon;
+      token2 = usdc;
+      return {
+        ...state,
+        token1: ancon,
+        token2: usdc,
+      };
+    case "switchback":
+      token1 = usdc;
+      token2 = ancon;
+      return {
+        ...state,
+        token1: usdc,
+        token2: ancon,
+      };
     default:
       throw new Error();
   }
 }
 function SwapModal() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [switched, setSwitched] = useState(false);
   const [balances, setBalances] = useState({
     udsc: "",
     ancon: "",
   });
-  const [usdcQty, setUsdcQty] = useState("0");
-  const [anconQty, setAnconQty] = useState("0");
+  const [qty, setQty] = useState({
+    token1: "0",
+    token2: "0",
+  });
   const { provider, web3Provider, address, chainId } = state;
   const setAddress = useSetRecoilState(addressState);
 
@@ -151,9 +198,7 @@ function SwapModal() {
     const web3Provider = new ethers.providers.Web3Provider(provider);
 
     const signer = web3Provider.getSigner();
-    const addressGot = await signer.getAddress()
-    console.log('signer',signer)
-    // get balances
+    const addressGot = await signer.getAddress();
     const usdc = new ethers.Contract(
       "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
       AnconToken.abi,
@@ -164,11 +209,12 @@ function SwapModal() {
       AnconToken.abi,
       web3Provider
     );
-    
+
     let usdcBalance;
     let anconBalance;
     try {
       usdcBalance = await usdc.functions.balanceOf(addressGot);
+
       usdcBalance =
         parseInt(Web3.utils.hexToNumberString(usdcBalance[0]._hex)) /
         1000000000000000000;
@@ -184,11 +230,12 @@ function SwapModal() {
     } catch (error) {
       anconBalance = "0";
     }
-console.log(anconBalance, usdcBalance)
+
     setBalances({
       ancon: anconBalance.toString(),
       udsc: usdcBalance.toString(),
     });
+
     setAddress(addressGot);
     const network = await web3Provider.getNetwork();
     dispatch({
@@ -270,37 +317,33 @@ console.log(anconBalance, usdcBalance)
   }, [provider, disconnect]);
 
   const handleChange = async (name: string, value: string) => {
-    switch (name) {
-      case "usdc":
-        console.log(parseInt(value));
-        if (parseFloat(value) < 0 || parseInt(value) === 0) {
-          setUsdcQty("0");
-          setAnconQty("0");
-        } else {
-          const pair = await getPair(usdc, ancon);
-          console.log('pair',pair)
-          const route = new Route([pair], usdc);
-          console.log('route',route)
-          const price =
-            parseFloat(route.midPrice.toSignificant(6)) *
-            parseFloat(value) *
-            0.995;
-          console.log(price);
-          setAnconQty(price.toString());
-          setUsdcQty(value);
-        }
-        break;
-
-      case "ancon":
-        if (parseFloat(value) < 0 || parseInt(value) === 0) {
-          setAnconQty("0");
-        } else {
-          setAnconQty(value);
-        }
-        break;
+    if (parseFloat(value) < 0) {
+      setQty({ token1: "", token2: "" });
+      return;
     }
-  };
+    console.log("[value]", value);
+    if (value.startsWith("0.")) {
+      if (isNaN(parseInt(value[2]))) {
+        setQty({ token1: "0.", token2: "0" });
+        return;
+      } else {
+        setQty({ token1: value, token2: "0" });
+      }
+    }
 
+    console.log("getting pair");
+    const pair = await getPair(token1, token2);
+    console.log(token1, token2);
+    const route = new Route([pair], token1);
+    console.log("route", route);
+    const price =
+      parseFloat(route.midPrice.toSignificant(6)) *
+      parseFloat(value) *
+      0.995;
+    console.log(price);
+    setQty({ token1: value, token2: price.toString() });
+  };
+  console.log(qty);
   const getPair = async (usdc: Token, ancon: Token) => {
     const pairAddress = Pair.getAddress(usdc, ancon);
 
@@ -365,11 +408,10 @@ console.log(anconBalance, usdcBalance)
       routerAddress
     );
     console.log(Web3.utils.hexToNumberString(usdcAllowance._hex));
-    if (Web3.utils.hexToNumberString(usdcAllowance._hex) === '0') {
+    if (Web3.utils.hexToNumberString(usdcAllowance._hex) === "0") {
       await usdcContract.approve(routerAddress, amountIn);
     }
 
-    
     const anconAllowance = await anconContract.allowance(
       address,
       routerAddress
@@ -390,6 +432,18 @@ console.log(anconBalance, usdcBalance)
     //   console.log(result);
   };
 
+  const switchTokens = () => {
+    if (switched) {
+      setQty({ token1: "0", token2: "0" });
+      setSwitched(false);
+      dispatch({ type: "switchback" });
+      return "switched";
+    }
+    setQty({ token1: "0", token2: "0" });
+    setSwitched(true);
+    dispatch({ type: "switch" });
+    return "switched";
+  };
   return (
     <section className="flex items-center justify-center">
       <div className="bg-[#0c0f1c] rounded-xl p-2 mt-8 md:mt-32 xl:mt-60 w-10/12 shadow-lg sm:w-7/12 sm:mt-12 sm:px-3 md:w-5/12 xl:w-3/12">
@@ -409,55 +463,77 @@ console.log(anconBalance, usdcBalance)
           <div className="bg-[#2b334f] rounded-xl flex justify-between p-3 sm:py-5 items-center mt-2 relative">
             {/* dropdown */}
             <input
-              value={usdcQty}
-              name="usdc"
+              value={qty.token1}
+              name="token1"
               onChange={(e) =>
                 handleChange(e.target.name, e.target.value)
               }
               className="bg-transparent text-2xl w-1/2 focus:outline-none"
             />
             <div className="grid justify-items-end">
-              <p className="text-gray-300 text-sm">
-                Balance: {balances.udsc.slice(0, 10)}
-              </p>
+              {token1?.symbol === "USDC" ? (
+                <p className="text-gray-300 text-sm">
+                  Balance: {balances.udsc.slice(0, 10)}
+                </p>
+              ) : (
+                <p className="text-gray-300 text-sm">
+                  Balance: {balances.ancon.slice(0, 10)}
+                </p>
+              )}
               <div className="bg-[#0c0f1c] flex justify-between rounded-xl px-3 py-2 text-white items-center">
                 <p className="font-medium sm:text-xl xl:text-xl select-none">
-                  USDC
+                  {token1?.symbol === "USDC" ? "USDC" : "ANCON"}
                 </p>
-                <img src="/usdc.png" className="w-6 h-6 ml-3"></img>
+                {token1?.symbol === "USDC" ? (
+                  <img src="/usdc.png" className="w-6 h-6 ml-3" />
+                ) : (
+                  <img
+                    src="/ancon-logo.png"
+                    className="w-6 h-6 ml-3"
+                  />
+                )}
               </div>
             </div>
           </div>
 
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             <div className="flex items-center justify-center">
-              <div className="bg-[#2b334f] p-1 rounded-3xl my-2 border-4 border-[#0c0f1c]">
+              <div
+                onClick={switchTokens}
+                className="bg-[#2b334f] p-1 rounded-3xl my-2 border-4 border-[#0c0f1c] cursor-pointer hover:bg-black"
+              >
                 <ArrowSmDownIcon className="w-5 text-white" />
               </div>
             </div>
           </div>
           {/* second token */}
           <div className="bg-[#2b334f] rounded-xl flex justify-between p-3 items-center mt-4 sm:py-5">
-            <input
-              value={anconQty}
-              name="ancon"
-              onChange={(e) =>
-                handleChange(e.target.name, e.target.value)
-              }
-              className="bg-transparent text-2xl w-1/2 focus:outline-none"
-            />
+            <p className="text-2xl">{qty.token2}</p>
             <div className="grid justify-items-end">
-              <p className="text-gray-300 text-sm">
-                Balance: {balances.ancon.slice(0, 10)}
-              </p>
+              {token2?.symbol === "USDC" ? (
+                <p className="text-gray-300 text-sm">
+                  Balance: {balances.udsc.slice(0, 10)}
+                </p>
+              ) : (
+                <p className="text-gray-300 text-sm">
+                  Balance: {balances.ancon.slice(0, 10)}
+                </p>
+              )}
+
               {/* dropdown */}
               <div className="bg-[#0c0f1c] flex rounded-xl px-3 py-2 text-white">
                 {/* <ChevronDownIcon className="w-5" /> */}
-                <p className="font-medium sm:text-xl">ANCON</p>
-                <img
-                  src="/ancon-logo.png"
-                  className="w-6 h-6 ml-3"
-                ></img>
+                <p className="font-medium sm:text-xl">
+                  {token2?.symbol === "USDC" ? "USDC" : "ANCON"}
+                </p>
+                {token2?.symbol === "USDC" ? (
+                  <img src="/usdc.png" className="w-6 h-6 ml-3" />
+                ) : (
+                  <img
+                    src="/ancon-logo.png"
+                    className="w-6 h-6 ml-3"
+                  />
+                )}
               </div>
             </div>
           </div>
