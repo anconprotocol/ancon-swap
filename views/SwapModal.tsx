@@ -15,7 +15,18 @@ import Web3 from "web3";
 const AnconToken = require("../contracts/Ancon.json");
 
 // SDK
-import { ChainId, Token, Fetcher, Pair, TokenAmount } from "@pancakeswap/sdk";
+import {
+  ChainId,
+  Token,
+  Fetcher,
+  Pair,
+  TokenAmount,
+  Route,
+  TradeType,
+  Trade,
+  Percent,
+} from "@pancakeswap/sdk";
+import BigNumber from "bignumber.js";
 
 const INFURA_ID = "460f40a260564ac4a4f4b3fffb032dad";
 
@@ -43,6 +54,20 @@ if (typeof window !== "undefined") {
     },
   });
 }
+const usdc: Token = new Token(
+  56,
+  "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+  18,
+  "USDC",
+  "Binance-Peg USD Coin"
+);
+const ancon: Token = new Token(
+  56,
+  "0x217f3bdbb0358082c99e1de01c47D1B2DBA45ad5",
+  18,
+  "USDC",
+  "Binance-Peg USD Coin"
+);
 
 // manage state
 type StateType = {
@@ -243,13 +268,22 @@ function SwapModal() {
   }, [provider, disconnect]);
   console.log(chainId);
 
-  const handleChange = (name: string, value: string) => {
+  const handleChange = async (name: string, value: string) => {
     switch (name) {
       case "usdc":
         console.log(parseInt(value));
         if (parseFloat(value) < 0 || parseInt(value) === 0) {
           setUsdcQty("0");
+          setAnconQty("0");
         } else {
+          const pair = await getPair(usdc, ancon);
+          const route = new Route([pair], usdc);
+          const price =
+            parseFloat(route.midPrice.toSignificant(6)) *
+            parseFloat(value) *
+            0.995;
+          console.log(price);
+          setAnconQty(price.toString());
           setUsdcQty(value);
         }
         break;
@@ -264,69 +298,91 @@ function SwapModal() {
     }
   };
 
-  const getPair = async (usdc:Token, ancon:Token) => {
+  const getPair = async (usdc: Token, ancon: Token) => {
     const pairAddress = Pair.getAddress(usdc, ancon);
-    
-    const reserves = await await Fetcher.fetchPairData(usdc, ancon, web3Provider);
-    
-    // const reserves = pairad;
-    const {reserve0, reserve1} = reserves;
 
-    const tokens = [usdc, ancon[usdc.chainId]];
-    const [token0, token1] = tokens[0].sortsBefore(tokens[1])
-      ? tokens
-      : [tokens[1], tokens[0]];
-
-    const pair = new Pair(
-      new TokenAmount(token0, reserve0),
-      new TokenAmount(token1, reserve1)
+    const reserves = await await Fetcher.fetchPairData(
+      usdc,
+      ancon,
+      web3Provider
     );
+
+    // const reserves = pairad;
+    const { reserve0, reserve1 } = reserves;
+
+    const pair = new Pair(reserve0, reserve1);
     return pair;
   };
+
   const swap = async () => {
     const routerAddress = process.env.NEXT_PUBLIC_ROUTER_ADDRESS;
     const signer = await web3Provider.getSigner();
-    const router = new ethers.Contract(routerAddress, abi, signer);
+    const contract = new ethers.Contract(routerAddress, abi, signer);
 
     // prepare the tokens
-    const usdc: Token = new Token(
-      56,
+
+    const usdcContract = new ethers.Contract(
       "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-      18,
-      "USDC",
-      "Binance-Peg USD Coin"
+      AnconToken.abi,
+      signer
     );
-    const ancon: Token = new Token(
-      56,
+    const anconContract = new ethers.Contract(
       "0x217f3bdbb0358082c99e1de01c47D1B2DBA45ad5",
-      18,
-      "USDC",
-      "Binance-Peg USD Coin"
+      AnconToken.abi,
+      signer
+    );
+    // create pair
+    const pair = await getPair(usdc, ancon);
+    const route = new Route([pair], usdc);
+
+    let amountIn = new BigNumber(usdcQty).shiftedBy(17).toFixed();
+
+    const trade = new Trade(
+      route,
+      new TokenAmount(usdc, amountIn),
+      TradeType.EXACT_INPUT
     );
 
-    // create pair
-      const pair = await getPair(usdc,ancon)
-    // const usdc = new ethers.Contract(
-    //   "0x64544969ed7EBf5f083679233325356EbE738930",
-    //   AnconToken.abi,
-    //   web3Provider
+    // calculate the min
+    const slippageTolerance = new Percent("50", "10000");
+    const amountOutMin = trade
+      .minimumAmountOut(slippageTolerance)
+      .toExact(); // needs to be converted to e.g. hex
+    const bigNumberAmountOutMin = new BigNumber(amountOutMin)
+      .shiftedBy(18)
+      .toFixed();
+
+    const path = [usdc.address, ancon.address];
+    const to = "0x6502781e4024D1FeBaBc8CdD18fA74f4e1954651"; // should be a checksummed recipient address
+    const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes from the current Unix time
+    const value = trade.inputAmount.raw; // // needs to be converted to e.g. hex
+
+    const usdcAllowance = await usdcContract.allowance(
+      address,
+      routerAddress
+    );
+    console.log(Web3.utils.hexToNumberString(usdcAllowance._hex));
+    if (Web3.utils.hexToNumberString(usdcAllowance._hex) === '0') {
+      await usdcContract.approve(routerAddress, amountIn);
+    }
+
+    
+    const anconAllowance = await anconContract.allowance(
+      address,
+      routerAddress
+    );
+    console.log(Web3.utils.hexToNumberString(anconAllowance._hex));
+    if (Web3.utils.hexToNumberString(anconAllowance._hex) === "0") {
+      await anconContract.approve(routerAddress, amountIn);
+    }
+
+    // const result = contract.functions.swapExactTokensForTokens(
+    //   amountIn,
+    //   bigNumberAmountOutMin,
+    //   path,
+    //   to,
+    //   deadline,
     // );
-    // const ancon = new ethers.Contract(
-    //   "0x2cFBD78C66f8c17B0104F31BDC6bA58941cab6A1",
-    //   AnconToken.abi,
-    //   web3Provider
-    // );
-    // await ancon.functions.apro;
-    //   const result = await router.swapExactTokensForTokens(
-    //     ethers.utils.hexlify(ethers.utils.arrayify("0.2")),
-    //     ethers.utils.hexlify("0.5"),
-    //     [
-    //       0x217f3bdbb0358082c99e1de01c47d1b2dba45ad5,
-    //       0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d,
-    //     ],
-    //     0x32a21c1bb6e7c20f547e930b53dac57f42cd25f6,
-    //     Date.now() + 1000000
-    //   );
 
     //   console.log(result);
   };
