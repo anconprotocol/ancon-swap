@@ -151,7 +151,8 @@ function SwapModal() {
     const web3Provider = new ethers.providers.Web3Provider(provider);
 
     const signer = web3Provider.getSigner();
-    const address = await signer.getAddress();
+    const addressGot = await signer.getAddress()
+    console.log('signer',signer)
     // get balances
     const usdc = new ethers.Contract(
       "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
@@ -163,10 +164,11 @@ function SwapModal() {
       AnconToken.abi,
       web3Provider
     );
+    
     let usdcBalance;
     let anconBalance;
     try {
-      usdcBalance = await usdc.functions.balanceOf(address);
+      usdcBalance = await usdc.functions.balanceOf(addressGot);
       usdcBalance =
         parseInt(Web3.utils.hexToNumberString(usdcBalance[0]._hex)) /
         1000000000000000000;
@@ -175,19 +177,19 @@ function SwapModal() {
     }
 
     try {
-      anconBalance = await ancon.functions.balanceOf(address);
+      anconBalance = await ancon.functions.balanceOf(addressGot);
       anconBalance =
         parseInt(Web3.utils.hexToNumberString(anconBalance[0]._hex)) /
         1000000000000000000;
     } catch (error) {
       anconBalance = "0";
     }
-
+console.log(anconBalance, usdcBalance)
     setBalances({
       ancon: anconBalance.toString(),
       udsc: usdcBalance.toString(),
     });
-    setAddress(address);
+    setAddress(addressGot);
     const network = await web3Provider.getNetwork();
     dispatch({
       type: "SET_WEB3_PROVIDER",
@@ -266,7 +268,6 @@ function SwapModal() {
       };
     }
   }, [provider, disconnect]);
-  console.log(chainId);
 
   const handleChange = async (name: string, value: string) => {
     switch (name) {
@@ -277,7 +278,9 @@ function SwapModal() {
           setAnconQty("0");
         } else {
           const pair = await getPair(usdc, ancon);
+          console.log('pair',pair)
           const route = new Route([pair], usdc);
+          console.log('route',route)
           const price =
             parseFloat(route.midPrice.toSignificant(6)) *
             parseFloat(value) *
