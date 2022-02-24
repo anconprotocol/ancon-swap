@@ -24,6 +24,18 @@ function Header() {
           ></img>
         </div>
       </Link>
+      <div className="bg-yellow-200 rounded-xl px-3 p-2 flex mr-10 w-1/2">
+        <img
+          src={"/ancon-logo.png"}
+          width={"35px"}
+          height={"35px"}
+          className="ml-2 md:ml-4"
+        ></img>
+        <p>
+          PHISHING WARNING: please make sure you're visiting
+          https://app.ancon.did.pa - check the URL carefully.:
+        </p>
+      </div>
       <div className="bg-primary-500 rounded-full px-3 py-1">
         <p className="font-medium text-white">
           {address.slice(0, 6)}...{address.slice(-6)}
