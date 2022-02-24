@@ -6,7 +6,12 @@ import React, {
 } from "react";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
-import { ArrowSmDownIcon, CogIcon } from "@heroicons/react/solid";
+import {
+  ArrowSmDownIcon,
+  CheckCircleIcon,
+  CogIcon,
+  XIcon,
+} from "@heroicons/react/solid";
 import { ethers } from "ethers";
 import { useSetRecoilState } from "recoil";
 import { addressState } from "../atoms/addressAtom";
@@ -176,6 +181,7 @@ function reducer(state: StateType, action: ActionType): StateType {
 }
 function SwapModal() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [show, setShow] = useState(false);
   const [switched, setSwitched] = useState(false);
   const [balances, setBalances] = useState({
     udsc: "",
@@ -321,7 +327,7 @@ function SwapModal() {
       setQty({ token1: "", token2: "" });
       return;
     }
-    console.log("[value]", value);
+
     if (value.startsWith("0.")) {
       if (isNaN(parseInt(value[2]))) {
         setQty({ token1: "0.", token2: "0" });
@@ -331,19 +337,28 @@ function SwapModal() {
       }
     }
 
-    console.log("getting pair");
+    if (value.length > 2) {
+      if (isNaN(parseInt(value[value.length - 1]))) {
+        setQty({ token1: "", token2: "" });
+        return;
+      }
+    }
+
     const pair = await getPair(token1, token2);
-    console.log(token1, token2);
+
     const route = new Route([pair], token1);
-    console.log("route", route);
+
     const price =
       parseFloat(route.midPrice.toSignificant(6)) *
       parseFloat(value) *
       0.995;
-    console.log(price);
+    if (isNaN(price)) {
+      setQty({ token1: "", token2: "0" });
+      return;
+    }
     setQty({ token1: value, token2: price.toString() });
   };
-  console.log(qty);
+
   const getPair = async (usdc: Token, ancon: Token) => {
     const pairAddress = Pair.getAddress(usdc, ancon);
 
@@ -364,7 +379,7 @@ function SwapModal() {
     const routerAddress = process.env.NEXT_PUBLIC_ROUTER_ADDRESS;
     const signer = await web3Provider.getSigner();
     const contract = new ethers.Contract(routerAddress, abi, signer);
-
+    
     // prepare the tokens
 
     const usdcContract = new ethers.Contract(
@@ -377,15 +392,16 @@ function SwapModal() {
       AnconToken.abi,
       signer
     );
+    
     // create pair
-    const pair = await getPair(usdc, ancon);
-    const route = new Route([pair], usdc);
+    const pair = await getPair(token1, token2);
+    const route = new Route([pair], token1);
 
-    let amountIn = new BigNumber(usdcQty).shiftedBy(17).toFixed();
+    let amountIn = new BigNumber(qty.token1).shiftedBy(18).toFixed();
 
     const trade = new Trade(
       route,
-      new TokenAmount(usdc, amountIn),
+      new TokenAmount(token1, amountIn),
       TradeType.EXACT_INPUT
     );
 
@@ -398,38 +414,46 @@ function SwapModal() {
       .shiftedBy(18)
       .toFixed();
 
-    const path = [usdc.address, ancon.address];
-    const to = "0x6502781e4024D1FeBaBc8CdD18fA74f4e1954651"; // should be a checksummed recipient address
+    const path = [token1.address, token2.address];
+    const to = await signer.getAddress(); // should be a checksummed recipient address
     const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes from the current Unix time
     const value = trade.inputAmount.raw; // // needs to be converted to e.g. hex
 
     const usdcAllowance = await usdcContract.allowance(
-      address,
+      to,
       routerAddress
     );
-    console.log(Web3.utils.hexToNumberString(usdcAllowance._hex));
     if (Web3.utils.hexToNumberString(usdcAllowance._hex) === "0") {
-      await usdcContract.approve(routerAddress, amountIn);
+    await usdcContract.approve(
+      routerAddress,
+      "1000000000000000000000000"
+    );
     }
 
     const anconAllowance = await anconContract.allowance(
-      address,
+      to,
       routerAddress
     );
-    console.log(Web3.utils.hexToNumberString(anconAllowance._hex));
     if (Web3.utils.hexToNumberString(anconAllowance._hex) === "0") {
-      await anconContract.approve(routerAddress, amountIn);
+    await anconContract.approve(
+      routerAddress,
+      "1000000000000000000000000"
+    );
     }
 
-    // const result = contract.functions.swapExactTokensForTokens(
-    //   amountIn,
-    //   bigNumberAmountOutMin,
-    //   path,
-    //   to,
-    //   deadline,
-    // );
-
-    //   console.log(result);
+    let result;
+    try {
+      result = await contract.functions.swapExactTokensForTokens(
+        amountIn,
+        bigNumberAmountOutMin,
+        path,
+        "0x6502781e4024D1FeBaBc8CdD18fA74f4e1954651",
+        deadline
+      );
+      await result?.wait(1)
+      setQty({token1:'0', token2:'0'})
+      setShow(true);
+    } catch (error) {}
   };
 
   const switchTokens = () => {
@@ -446,6 +470,19 @@ function SwapModal() {
   };
   return (
     <section className="flex items-center justify-center">
+      {show && (
+        <div className="fixed w-full h-full bg-black flex items-center justify-center bg-opacity-50 z-50 select-none px-4 inset-0">
+          <div className="absolute left-1/2 top-40 -translate-x-1/2 -translate-y-1/2 w-10/12 md:w-1/2 2xl:w-3/12 rounded-md shadow-xl  grid select-none bg-white">
+            <div className="flex justify-center items-center space-x-4relative px-2 py-3">
+              <h1 className="font-black text-xl">Tokens Swapped!</h1>
+              <CheckCircleIcon className="text-green-700 w-10" />
+              <XIcon className="w-5 absolute right-2 top-2 cursor-pointer hover:text-red-600" onClick={() => setShow(false)}/>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
       <div className="bg-[#0c0f1c] rounded-xl p-2 mt-8 md:mt-32 xl:mt-60 w-10/12 shadow-lg sm:w-7/12 sm:mt-12 sm:px-3 md:w-5/12 xl:w-3/12">
         {/* first section */}
         <div className="flex justify-between items-center">
@@ -508,7 +545,7 @@ function SwapModal() {
           </div>
           {/* second token */}
           <div className="bg-[#2b334f] rounded-xl flex justify-between p-3 items-center mt-4 sm:py-5">
-            <p className="text-2xl">{qty.token2}</p>
+            <p className="text-2xl">{qty.token2.slice(0, 8)}</p>
             <div className="grid justify-items-end">
               {token2?.symbol === "USDC" ? (
                 <p className="text-gray-300 text-sm">
