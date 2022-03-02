@@ -6,44 +6,44 @@ import { addressState } from "../../atoms/addressAtom";
 function Header() {
   const address = useRecoilValue(addressState);
   return (
-    <header className="flex justify-between p-4 items-center shadow-md bg-blueGray-800">
+    <header className="grid grid-cols-1 p-4 items-center shadow-md bg-blueGray-800 justify-items-center">
       {/* left section */}
-      <Link passHref href={"/"}>
-        <div className="flex md:flex-grow cursor-pointer">
-          <img
-            className="ifesa-logo"
-            src={"/ifesa-logo.png"}
-            width={"150px"}
-            height={"35px"}
-          ></img>
-          <img
-            src={"/ancon-logo.png"}
-            width={"35px"}
-            height={"35px"}
-            className="ml-2 md:ml-4"
-          ></img>
+      <div className="flex justify-between col-span-2 w-full">
+        <Link passHref href={"/"}>
+          <div className="flex md:flex-grow cursor-pointer">
+            <img
+              className="ifesa-logo"
+              src={"/ifesa-logo.png"}
+              width={"150px"}
+              height={"35px"}
+            ></img>
+            <img
+              src={"/ancon-logo.png"}
+              width={"35px"}
+              height={"35px"}
+              className="ml-2 md:ml-4"
+            ></img>
+          </div>
+        </Link>
+        <div className="bg-primary-500 rounded-full px-3 py-1">
+          <p className="font-medium text-white">
+            {address.slice(0, 6)}...{address.slice(-6)}
+          </p>
         </div>
-      </Link>
-      <div className="bg-yellow-200 rounded-xl px-3 p-2 flex mr-10 w-1/2">
+      </div>
+
+      <div className="bg-yellow-200 rounded-xl p-2 flex col-span-2 w-full md:w-1/2 mt-10 items-center">
         <img
           src={"/ancon-logo.png"}
           width={"35px"}
           height={"35px"}
           className="ml-2 md:ml-4"
         ></img>
-        <p>
+        <p className="">
           PHISHING WARNING: please make sure youre visiting
           https://app.ancon.did.pa - check the URL carefully.:
         </p>
       </div>
-      <div className="bg-primary-500 rounded-full px-3 py-1">
-        <p className="font-medium text-white">
-          {address.slice(0, 6)}...{address.slice(-6)}
-        </p>
-      </div>
-
-      {/* right section */}
-      <div className="header-right flex md:justify-end md:flex-shrink items-center md:space-x-3 space-x-1"></div>
     </header>
   );
 }
