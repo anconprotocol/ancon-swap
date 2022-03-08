@@ -41,25 +41,52 @@ export const providerSlice = createSlice({
   initialState,
   reducers: {
     setProvider: (state, action: any) => {
-      console.log(action.payload);
       state.provider = action.payload.provider;
       state.web3Provider = action.payload.web3Provider;
       state.address = action.payload.address;
       state.chainId = action.payload.chainId;
     },
-    setAddress: (state) => {},
-    incrementByAmount: (state, action: PayloadAction<number>) => {},
+    setAddress: (state, action: PayloadAction<string>) => {
+      state.address = action.payload;
+    },
+    setChainId: (state, action: PayloadAction<number>) => {
+      state.chainId = action.payload;
+    },
+    resetProvider: (state) => {
+      state.provider = null;
+      state.web3Provider = null;
+      state.address = null;
+      state.chainId = null;
+      state.token1 = usdc;
+      state.token2 = ancon;
+    },
+    switchToken: (state) => {
+      state.token1 = ancon;
+      state.token2 = usdc;
+    },
+    switchBack: (state) => {
+      state.token1 = usdc;
+      state.token2 = ancon;
+    },
   },
 });
 
 // Action creators are generated for each case reducer function
-export const { setProvider, setAddress, incrementByAmount } =
-  providerSlice.actions;
+export const {
+  setProvider,
+  setAddress,
+  setChainId,
+  resetProvider,
+  switchBack,
+  switchToken,
+} = providerSlice.actions;
 
 export const selectProvider = (state) => ({
   provider: state.provider.provider,
   web3Provider: state.provider.web3Provider,
   address: state.provider.address,
   chainId: state.provider.chainId,
+  token1: state.provider.token1,
+  token2: state.provider.token2,
 });
 export default providerSlice.reducer;
