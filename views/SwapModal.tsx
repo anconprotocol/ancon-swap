@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useReducer,
   useState,
 } from "react";
 import Web3Modal from "web3modal";
@@ -9,7 +8,6 @@ import WalletConnectProvider from "@walletconnect/web3-provider";
 import {
   ArrowSmDownIcon,
   CheckCircleIcon,
-  CogIcon,
   LogoutIcon,
   XIcon,
 } from "@heroicons/react/solid";
