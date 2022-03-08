@@ -4,7 +4,7 @@ import { useRecoilValue } from "recoil";
 import { addressState } from "../../atoms/addressAtom";
 
 function Header() {
-  const address = useRecoilValue(addressState);
+  // const address = useRecoilValue(addressState);
   return (
     <header className="grid grid-cols-1 p-4 items-center shadow-md bg-blueGray-800 justify-items-center">
       {/* left section */}
@@ -27,7 +27,7 @@ function Header() {
         </Link>
         <div className="bg-primary-500 rounded-full px-3 py-1">
           <p className="font-medium text-white">
-            {address.slice(0, 6)}...{address.slice(-6)}
+            {/* {address.slice(0, 6)}...{address.slice(-6)} */}
           </p>
         </div>
       </div>

@@ -32,6 +32,12 @@ import {
   Percent,
 } from "@pancakeswap/sdk";
 import BigNumber from "bignumber.js";
+import useAnconPrice from "../hooks/useAnconPrice";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  selectProvider,
+  setProvider,
+} from "../redux/features/provider/providerSlice";
 
 const INFURA_ID = "460f40a260564ac4a4f4b3fffb032dad";
 
@@ -180,7 +186,9 @@ function reducer(state: StateType, action: ActionType): StateType {
   }
 }
 function SwapModal() {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  // const [state, dispatch] = useReducer(reducer, initialState);
+
+  const dispatch = useDispatch();
   const [show, setShow] = useState(false);
   const [switched, setSwitched] = useState(false);
   const [balances, setBalances] = useState({
@@ -191,9 +199,11 @@ function SwapModal() {
     token1: "0",
     token2: "0",
   });
-  const { provider, web3Provider, address, chainId } = state;
-  const setAddress = useSetRecoilState(addressState);
+  const { provider, web3Provider, address, chainId } =
+    useSelector(selectProvider);
+  // const setAddress = useSetRecoilState(addressState);
 
+  // const anconprice = useAnconPrice(web3Provider)
   // connect
   const connect = useCallback(async function () {
     // This is the initial `provider` that is returned when
@@ -242,22 +252,23 @@ function SwapModal() {
       udsc: usdcBalance.toString(),
     });
 
-    setAddress(addressGot);
+    // setAddress(addressGot);
     const network = await web3Provider.getNetwork();
-    dispatch({
-      type: "SET_WEB3_PROVIDER",
-      provider,
-      web3Provider,
-      address,
-      chainId: network.chainId,
-    });
+    dispatch(
+      setProvider({
+        provider,
+        web3Provider,
+        address: addressGot,
+        chainId: network.chainId,
+      })
+    );
   }, []);
 
   // disconnect
   const disconnect = useCallback(
     async function () {
       await web3Modal.clearCachedProvider();
-      setAddress("");
+      // setAddress("");
       if (
         provider?.disconnect &&
         typeof provider.disconnect === "function"
@@ -270,57 +281,58 @@ function SwapModal() {
     },
     [provider]
   );
+  console.log(web3Provider);
 
   // Auto connect to the cached provider
-  useEffect(() => {
-    if (web3Modal.cachedProvider) {
-      connect();
-    }
-  }, [connect]);
+  // useEffect(() => {
+  //   if (web3Modal.cachedProvider) {
+  //     connect();
+  //   }
+  // }, [connect]);
 
   // listen to the events on the provider
-  useEffect(() => {
-    if (provider?.on) {
-      const handleAccountsChanged = (accounts: string[]) => {
-        // eslint-disable-next-line no-console
-        console.log("accountsChanged", accounts);
-        dispatch({
-          type: "SET_ADDRESS",
-          address: accounts[0],
-        });
-      };
+  // useEffect(() => {
+  //   if (provider?.on) {
+  //     const handleAccountsChanged = (accounts: string[]) => {
+  //       // eslint-disable-next-line no-console
+  //       console.log("accountsChanged", accounts);
+  //       dispatch({
+  //         type: "SET_ADDRESS",
+  //         address: accounts[0],
+  //       });
+  //     };
 
-      // https://docs.ethers.io/v5/concepts/best-practices/#best-practices--network-changes
-      const handleChainChanged = (_hexChainId: string) => {
-        window.location.reload();
-      };
+  //     // https://docs.ethers.io/v5/concepts/best-practices/#best-practices--network-changes
+  //     const handleChainChanged = (_hexChainId: string) => {
+  //       window.location.reload();
+  //     };
 
-      const handleDisconnect = (error: {
-        code: number;
-        message: string;
-      }) => {
-        // eslint-disable-next-line no-console
-        console.log("disconnect", error);
-        disconnect();
-      };
+  //     const handleDisconnect = (error: {
+  //       code: number;
+  //       message: string;
+  //     }) => {
+  //       // eslint-disable-next-line no-console
+  //       console.log("disconnect", error);
+  //       disconnect();
+  //     };
 
-      provider.on("accountsChanged", handleAccountsChanged);
-      provider.on("chainChanged", handleChainChanged);
-      provider.on("disconnect", handleDisconnect);
+  //     provider.on("accountsChanged", handleAccountsChanged);
+  //     provider.on("chainChanged", handleChainChanged);
+  //     provider.on("disconnect", handleDisconnect);
 
-      // Subscription Cleanup
-      return () => {
-        if (provider.removeListener) {
-          provider.removeListener(
-            "accountsChanged",
-            handleAccountsChanged
-          );
-          provider.removeListener("chainChanged", handleChainChanged);
-          provider.removeListener("disconnect", handleDisconnect);
-        }
-      };
-    }
-  }, [provider, disconnect]);
+  //     // Subscription Cleanup
+  //     return () => {
+  //       if (provider.removeListener) {
+  //         provider.removeListener(
+  //           "accountsChanged",
+  //           handleAccountsChanged
+  //         );
+  //         provider.removeListener("chainChanged", handleChainChanged);
+  //         provider.removeListener("disconnect", handleDisconnect);
+  //       }
+  //     };
+  //   }
+  // }, [provider, disconnect]);
 
   const handleChange = async (name: string, value: string) => {
     if (parseFloat(value) < 0) {
@@ -360,8 +372,6 @@ function SwapModal() {
   };
 
   const getPair = async (usdc: Token, ancon: Token) => {
-    const pairAddress = Pair.getAddress(usdc, ancon);
-
     const reserves = await await Fetcher.fetchPairData(
       usdc,
       ancon,
@@ -379,7 +389,7 @@ function SwapModal() {
     const routerAddress = process.env.NEXT_PUBLIC_ROUTER_ADDRESS;
     const signer = await web3Provider.getSigner();
     const contract = new ethers.Contract(routerAddress, abi, signer);
-    
+
     // prepare the tokens
 
     const usdcContract = new ethers.Contract(
@@ -392,7 +402,7 @@ function SwapModal() {
       AnconToken.abi,
       signer
     );
-    
+
     // create pair
     const pair = await getPair(token1, token2);
     const route = new Route([pair], token1);
@@ -424,10 +434,10 @@ function SwapModal() {
       routerAddress
     );
     if (Web3.utils.hexToNumberString(usdcAllowance._hex) === "0") {
-    await usdcContract.approve(
-      routerAddress,
-      "1000000000000000000000000"
-    );
+      await usdcContract.approve(
+        routerAddress,
+        "1000000000000000000000000"
+      );
     }
 
     const anconAllowance = await anconContract.allowance(
@@ -435,10 +445,10 @@ function SwapModal() {
       routerAddress
     );
     if (Web3.utils.hexToNumberString(anconAllowance._hex) === "0") {
-    await anconContract.approve(
-      routerAddress,
-      "1000000000000000000000000"
-    );
+      await anconContract.approve(
+        routerAddress,
+        "1000000000000000000000000"
+      );
     }
 
     let result;
@@ -450,8 +460,8 @@ function SwapModal() {
         to,
         deadline
       );
-      await result?.wait(1)
-      setQty({token1:'0', token2:'0'})
+      await result?.wait(1);
+      setQty({ token1: "0", token2: "0" });
       setShow(true);
     } catch (error) {}
   };
@@ -476,9 +486,11 @@ function SwapModal() {
             <div className="flex justify-center items-center space-x-4relative px-2 py-3">
               <h1 className="font-black text-xl">Tokens Swapped!</h1>
               <CheckCircleIcon className="text-green-700 w-10" />
-              <XIcon className="w-5 absolute right-2 top-2 cursor-pointer hover:text-red-600" onClick={() => setShow(false)}/>
+              <XIcon
+                className="w-5 absolute right-2 top-2 cursor-pointer hover:text-red-600"
+                onClick={() => setShow(false)}
+              />
             </div>
-            
           </div>
         </div>
       )}
