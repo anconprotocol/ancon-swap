@@ -6,7 +6,7 @@ Dapp to swap **USDC** to **ANCON** and vice versa. Tech Stack _Nextjs_, _Redux_ 
 
 ## Preview
 
-[Live Demo!](https://app.ancon.did.pa)
+[Live Demo!](https://dex.anconprotocol.com/)
 
 
 
