@@ -43,7 +43,7 @@ function Header() {
         ></img>
         <p className="">
           PHISHING WARNING: please make sure youre visiting
-          https://app.ancon.did.pa - check the URL carefully.:
+          https://dex.anconprotocol.com/ - check the URL carefully.:
         </p>
       </div>
     </header>
