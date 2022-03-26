@@ -4,13 +4,16 @@ import Layout from "../components/Layout";
 
 import { Provider } from "react-redux";
 import { store } from "../redux/store";
+import { ThemeProvider } from "next-themes";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
     <Provider store={store}>
+      <ThemeProvider attribute="class" defaultTheme="system">
       <Layout>
         <Component {...pageProps} />
       </Layout>
+      </ThemeProvider>
     </Provider>
   );
 }

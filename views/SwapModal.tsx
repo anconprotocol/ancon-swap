@@ -374,21 +374,21 @@ function SwapModal() {
         </div>
       )}
 
-      <div className="bg-[#0c0f1c] rounded-xl p-2 mt-8 md:mt-32 xl:mt-60 w-10/12 shadow-lg sm:w-7/12 sm:mt-12 sm:px-3 md:w-5/12 xl:w-3/12">
+      <div className="dark:bg-[#0c0f1c] bg-white border-4 border-primary-500 dark:border-0 rounded-xl p-2 mt-8 md:mt-32 xl:mt-60 w-10/12 shadow-lg sm:w-7/12 sm:mt-12 sm:px-3 md:w-5/12 xl:w-3/12">
         {/* first section */}
         <div className="flex justify-between items-center">
           {/* title */}
-          <h1 className="text-white font-black text-2xl">Swap</h1>
+          <h1 className="dark:text-white text-black font-black text-2xl">Swap</h1>
           {/* settings */}
           <LogoutIcon
-            className="w-5 text-gray-100 sm:w-8"
+            className="w-5 dark:text-white text-black sm:w-8 cursor-pointer"
             onClick={disconnect}
           />
         </div>
 
         <div className="relative">
           {/* first token */}
-          <div className="bg-[#2b334f] rounded-xl flex justify-between p-3 sm:py-5 items-center mt-2 relative">
+          <div className="dark:bg-[#2b334f] bg-gray-100 rounded-xl flex justify-between p-3 sm:py-5 items-center mt-2 relative">
             {/* dropdown */}
             <input
               value={qty.token1}
@@ -408,7 +408,7 @@ function SwapModal() {
                   Balance: {balances.ancon.slice(0, 10)}
                 </p>
               )}
-              <div className="bg-[#0c0f1c] flex justify-between rounded-xl px-3 py-2 text-white items-center">
+              <div className="bg-white dark:bg-[#0c0f1c] flex justify-between rounded-xl px-3 py-2 dark:text-white text-black items-center">
                 <p className="font-medium sm:text-xl xl:text-xl select-none">
                   {token1?.symbol === "USDC" ? "USDC" : "ANCON"}
                 </p>
@@ -428,16 +428,16 @@ function SwapModal() {
             <div className="flex items-center justify-center">
               <div
                 onClick={switchTokens}
-                className="bg-[#2b334f] p-1 rounded-3xl my-2 border-4 border-[#0c0f1c] cursor-pointer hover:bg-black"
+                className="dark:bg-[#2b334f] bg-gray-100 p-1 rounded-3xl my-2 border-4 border-white dark:border-[#0c0f1c] cursor-pointer dark:hover:bg-black"
               >
-                <ArrowSmDownIcon className="w-5 text-white" />
+                <ArrowSmDownIcon className="w-5 dark:text-white text-black" />
               </div>
             </div>
           </div>
           {/* second token */}
-          <div className="bg-[#2b334f] rounded-xl flex justify-between p-3 items-center mt-4 sm:py-5">
+          <div className="dark:bg-[#2b334f] bg-gray-100 rounded-xl flex justify-between p-3 items-center mt-4 sm:py-5">
             <p className="text-2xl">{qty.token2.slice(0, 8)}</p>
-            <div className="grid justify-items-end">
+            <div className="grid justify-items-end dark:text-white text-black">
               {token2?.symbol === "USDC" ? (
                 <p className="text-gray-300 text-sm">
                   Balance: {balances.udsc.slice(0, 10)}
@@ -449,7 +449,7 @@ function SwapModal() {
               )}
 
               {/* dropdown */}
-              <div className="bg-[#0c0f1c] flex rounded-xl px-3 py-2 text-white">
+              <div className="dark:bg-[#0c0f1c] bg-white flex rounded-xl px-3 py-2 dark:text-white text-black">
                 {/* <ChevronDownIcon className="w-5" /> */}
                 <p className="font-medium sm:text-xl">
                   {token2?.symbol === "USDC" ? "USDC" : "ANCON"}

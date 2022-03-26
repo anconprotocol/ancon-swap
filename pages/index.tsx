@@ -14,7 +14,7 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="h-screen bg-gradient-to-b from-blueGray-800 to-black">
+      <main className="h-screen dark:bg-gradient-to-b dark:from-blueGray-800 dark:to-black bg-gradient-to-b from-gray-100 to-white">
         <SwapModal />
       </main>
     </div>
